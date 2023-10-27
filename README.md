@@ -1,3 +1,16 @@
+# Notes for Constellation
+
+The e2e tests are shipped as a docker container that executes multiple payloads.
+Each payload is a S3 client program that sends a list of requests to a configurable S3 server.
+
+Checkout `build.sh`, `upload.sh` and `run.sh` to see how the image is built, uploaded and run.
+
+To locally run e2e tests you will have to:
+- deploy s3proxy using the instructions in the [README.md](https://github.com/edgelesssys/constellation/blob/main/s3proxy/deploy/README.md).
+- Run `build.sh && run.sh`
+
+You don't need to upload a new image manually as the CI will automatically build and upload mint images.
+
 # Mint [![Slack](https://slack.minio.io/slack?type=svg)](https://slack.minio.io) [![Docker Pulls](https://img.shields.io/docker/pulls/minio/mint.svg?maxAge=604800)](https://hub.docker.com/r/minio/mint/)
 
 Mint is a testing framework for Minio object server, available as a podman image. It runs correctness, benchmarking and stress tests. Following are the SDKs/tools used in correctness tests.
