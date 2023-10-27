@@ -25,16 +25,17 @@ jobs:
         run: echo "release_version=${GITHUB_REF#refs/*/}" | tee -a $GITHUB_OUTPUT
 
       - name: Log in to the Container registry
-        uses: ./.github/actions/container_registry_login
+        uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc # v2.2.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build mint
-        id: mintbuild
-        uses: ./.github/actions/build_mint
+      - name: Build and push container image
+        uses: docker/build-push-action@2eb1c1961a95fc15694676618e422e8ba1d63825 # v4.1.1
         with:
-          version: ${{ steps.set-version.outputs.release_version }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ghcr.io/edgelesssys/mint:${{ steps.set-version.outputs.release_version }}
