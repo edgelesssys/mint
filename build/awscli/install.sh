@@ -16,8 +16,8 @@
 #
 
 die() {
-  echo "$*" 1>&2
-  exit 1
+	echo "$*" 1>&2
+	exit 1
 }
 
 # shellcheck disable=SC2086
@@ -28,16 +28,16 @@ cd "$TMPDIR"
 
 # Download botocore and apply @y4m4's expect 100 continue fix
 (git clone --depth 1 -b 1.31.37 https://github.com/boto/botocore &&
-  cd botocore &&
-  patch -p1 < "$ROOTDIR/expect-100.patch" &&
-  python3 -m pip install .) ||
-  die "Unable to install botocore.."
+	cd botocore &&
+	patch -p1 <"$ROOTDIR/expect-100.patch" &&
+	python3 -m pip install .) ||
+	die "Unable to install botocore.."
 
 # Download and install aws cli
 (git clone --depth 1 -b 1.29.37 https://github.com/aws/aws-cli &&
-  cd aws-cli &&
-  python3 -m pip install .) ||
-  die "Unable to install aws-cli.."
+	cd aws-cli &&
+	python3 -m pip install .) ||
+	die "Unable to install aws-cli.."
 
 # Clean-up
 rm -r "$TMPDIR"

@@ -15,13 +15,11 @@
 #  limitations under the License.
 #
 
-test_run_dir="$MINT_RUN_CORE_DIR/aws-sdk-java"
-
 cd "$(dirname "$(realpath "$0")")"
 
 ant init-ivy &&
-  ant resolve &&
-  ant compile &&
-  ant jar
+	ant resolve &&
+	ant compile &&
+	ant jar
 
 echo "$PWD"
