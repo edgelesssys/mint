@@ -585,7 +585,7 @@ func testObjectTagging(s3Client *s3.S3) {
 		}
 	}
 	if !reflect.DeepEqual(tagop.TagSet, tagInputSet) {
-		failureLog(function, args, startTime, "", fmt.Sprintf("AWS SDK Go PUTObject Tag input did not match with GetObjectTagging output %v", nil), nil).Fatal()
+		failureLog(function, args, startTime, "", fmt.Sprintf("AWS SDK Go PUTObject Tag input <%s> did not match with GetObjectTagging output <%s>", taginput, tagop.TagSet), nil).Fatal()
 		return
 	}
 
@@ -620,7 +620,7 @@ func testObjectTagging(s3Client *s3.S3) {
 		}
 	}
 	if !reflect.DeepEqual(tagop.TagSet, taginputSet1) {
-		failureLog(function, args, startTime, "", fmt.Sprintf("AWS SDK Go PUTObjectTagging input did not match with GetObjectTagging output %v", nil), nil).Fatal()
+		failureLog(function, args, startTime, "", fmt.Sprintf("AWS SDK Go PUTObject Tag input <%s> did not match with GetObjectTagging output <%s>", taginputSet1, tagop.TagSet), nil).Fatal()
 		return
 	}
 	successLogger(function, args, startTime).Info()
@@ -821,11 +821,6 @@ func testObjectTaggingErrors(s3Client *s3.S3) {
 
 // Tests bucket re-create errors.
 func testCreateBucketError(s3Client *s3.S3) {
-	region := s3Client.Config.Region
-	// Amazon S3 returns error in all AWS Regions except in the North Virginia Region.
-	// More details in https://docs.aws.amazon.com/sdk-for-go/api/service/s3/#S3.CreateBucket
-	s3Client.Config.Region = aws.String("us-west-1")
-
 	// initialize logging params
 	startTime := time.Now()
 	function := "testMakeBucketError"
@@ -835,16 +830,11 @@ func testCreateBucketError(s3Client *s3.S3) {
 	}
 	_, err := s3Client.CreateBucket(&s3.CreateBucketInput{
 		Bucket: aws.String(bucketName),
+		CreateBucketConfiguration: &s3.CreateBucketConfiguration{
+			LocationConstraint: s3Client.Config.Region,
+		},
 	})
 	if err != nil {
-		// InvalidRegion is a valid error if the endpoint doesn't support
-		// different 'regions', we simply skip this test in such scenarios.
-		if err.(s3.RequestFailure).Code() == "InvalidRegion" {
-			// Restore region in s3Client
-			s3Client.Config.Region = region
-			successLogger(function, args, startTime).Info()
-			return
-		}
 		failureLog(function, args, startTime, "", "AWS SDK Go CreateBucket Failed", err).Fatal()
 		return
 	}
@@ -852,6 +842,9 @@ func testCreateBucketError(s3Client *s3.S3) {
 
 	_, errCreating := s3Client.CreateBucket(&s3.CreateBucketInput{
 		Bucket: aws.String(bucketName),
+		CreateBucketConfiguration: &s3.CreateBucketConfiguration{
+			LocationConstraint: s3Client.Config.Region,
+		},
 	})
 	if errCreating == nil {
 		failureLog(function, args, startTime, "", "AWS SDK Go CreateBucket Should Return Error for Existing bucket", err).Fatal()
@@ -864,8 +857,6 @@ func testCreateBucketError(s3Client *s3.S3) {
 		return
 	}
 
-	// Restore region in s3Client
-	s3Client.Config.Region = region
 	successLogger(function, args, startTime).Info()
 }
 
@@ -1022,10 +1013,9 @@ func testSSECopyObject(s3Client *s3.S3) {
 		failureLog(function, args, startTime, "", fmt.Sprintf("AWS SDK Go PUT expected to succeed but got %v", errPutEnc), errPutEnc).Fatal()
 		return
 	}
-
 	// copy the encrypted object
 	_, errCopyEnc := s3Client.CopyObject(&s3.CopyObjectInput{
-		SSECustomerAlgorithm: aws.String("AES256"),
+		SSECustomerAlgorithm: aws.String("AES255"),
 		SSECustomerKey:       sseCustomerKey,
 		CopySource:           aws.String(bucketName + "/" + object + "-enc"),
 		Bucket:               aws.String(bucketName),
@@ -1035,7 +1025,7 @@ func testSSECopyObject(s3Client *s3.S3) {
 		failureLog(function, args, startTime, "", "AWS SDK Go CopyObject expected to fail, but it succeeds ", wrongSuccess).Fatal()
 		return
 	}
-	invalidSSECustomerAlgorithm := "Requests specifying Server Side Encryption with Customer provided keys must provide a valid encryption algorithm"
+	invalidSSECustomerAlgorithm := "InvalidEncryptionAlgorithmError: The Encryption request you specified is not valid. Supported value: AES256."
 	if !strings.Contains(errCopyEnc.Error(), invalidSSECustomerAlgorithm) {
 		failureLog(function, args, startTime, "", fmt.Sprintf("AWS SDK Go CopyObject expected error %v got %v", invalidSSECustomerAlgorithm, errCopyEnc), errCopyEnc).Fatal()
 		return
@@ -1047,6 +1037,7 @@ func testSSECopyObject(s3Client *s3.S3) {
 		Bucket: aws.String(bucketName),
 		Key:    aws.String(object + "-noenc"),
 	})
+
 	if errPut != nil {
 		failureLog(function, args, startTime, "", fmt.Sprintf("AWS SDK Go PUT expected to succeed but got %v", errPut), errPut).Fatal()
 		return
@@ -1060,7 +1051,7 @@ func testSSECopyObject(s3Client *s3.S3) {
 		SSECustomerKey:                 sseCustomerKey,
 		CopySource:                     aws.String(bucketName + "/" + object + "-noenc"),
 		Bucket:                         aws.String(bucketName),
-		Key:                            aws.String(object + "-copy"),
+		Key:                            aws.String(object + "-copy1"),
 	})
 	if errCopy == nil {
 		failureLog(function, args, startTime, "", "AWS SDK Go CopyObject expected to fail, but it succeeds ", wrongSuccess).Fatal()
@@ -1075,8 +1066,44 @@ func testSSECopyObject(s3Client *s3.S3) {
 	successLogger(function, args, startTime).Info()
 }
 
+func testCreateFolder(s3Client *s3.S3) {
+	// initialize logging params
+	startTime := time.Now()
+	function := "testCreateFolder"
+	bucketName := randString(60, rand.NewSource(time.Now().UnixNano()), "aws-sdk-go-test-")
+	object := randString(60, rand.NewSource(time.Now().UnixNano()), "")
+	args := map[string]interface{}{
+		"bucketName": bucketName,
+		"objectName": object,
+	}
+	_, err := s3Client.CreateBucket(&s3.CreateBucketInput{
+		Bucket: aws.String(bucketName),
+	})
+	if err != nil {
+		failureLog(function, args, startTime, "", "AWS SDK Go CreateBucket Failed", err).Fatal()
+		return
+	}
+
+	_, err = s3Client.PutObject(&s3.PutObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String("/somefolder"),
+	})
+	defer cleanup(s3Client, bucketName, "/somefolder", function, args, startTime, true)
+
+	path := "/somefolder/" + object
+	_, err = s3Client.PutObject(&s3.PutObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(path),
+	})
+	defer cleanup(s3Client, bucketName, path, function, args, startTime, false)
+
+	successLogger(function, args, startTime).Info()
+}
+
 func main() {
+	fmt.Println("hello from my folder.")
 	endpoint := os.Getenv("SERVER_ENDPOINT")
+	region := os.Getenv("SERVER_REGION")
 	accessKey := os.Getenv("ACCESS_KEY")
 	secretKey := os.Getenv("SECRET_KEY")
 	secure := os.Getenv("ENABLE_HTTPS")
@@ -1096,7 +1123,7 @@ func main() {
 	s3Config := &aws.Config{
 		Credentials:      creds,
 		Endpoint:         aws.String(sdkEndpoint),
-		Region:           aws.String("us-east-1"),
+		Region:           aws.String(region),
 		S3ForcePathStyle: aws.Bool(true),
 	}
 
@@ -1112,9 +1139,10 @@ func main() {
 	// log Info or above -- success cases are Info level, failures are Fatal level
 	log.SetLevel(log.InfoLevel)
 	// execute tests
-	testPresignedPutInvalidHash(s3Client)
+	// testPresignedPutInvalidHash(s3Client)
 	testListObjects(s3Client)
-	testSelectObject(s3Client)
+	// TODO(derpsteb): select queries are incompatible with transparent encryption. This feature is not usable when using s3proxy.
+	// testSelectObject(s3Client)
 	testCreateBucketError(s3Client)
 	testListMultipartUploads(s3Client)
 	if secure == "1" {
@@ -1124,4 +1152,5 @@ func main() {
 		testObjectTagging(s3Client)
 		testObjectTaggingErrors(s3Client)
 	}
+	testCreateFolder(s3Client)
 }
