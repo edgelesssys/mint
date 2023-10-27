@@ -1,0 +1,40 @@
+name: E2E Test s3proxy
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*.*.*'
+
+
+jobs:
+  build:
+    name: Build docker image
+    runs-on: ubuntu-22.04
+    permissions:
+      id-token: write
+      checks: write
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+
+      - name: Set env
+        id: set-version
+        run: echo "release_version=${GITHUB_REF#refs/*/}" | tee -a $GITHUB_OUTPUT
+
+      - name: Log in to the Container registry
+        uses: ./.github/actions/container_registry_login
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build mint
+        id: mintbuild
+        uses: ./.github/actions/build_mint
+        with:
+          version: ${{ steps.set-version.outputs.release_version }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
