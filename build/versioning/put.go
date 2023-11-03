@@ -1,5 +1,5 @@
 /*
-*
+*  Copyright (c) Edgeless Systems GmbH
 *  Mint, (C) 2021 Minio, Inc.
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");

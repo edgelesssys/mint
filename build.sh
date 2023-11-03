@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 # Could be run like this: $ ./build.sh $(git tag --sort=committerdate | tail -1)
 if [[ ! $1 =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-z]+)?$ ]]; then
 	echo "Invalid version format. Please use v0.0.0-foo"
