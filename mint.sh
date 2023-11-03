@@ -1,5 +1,6 @@
 #!/bin/bash
 #
+#  Copyright (c) Edgeless Systems GmbH
 #  Mint (C) 2017-2022 Minio, Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
